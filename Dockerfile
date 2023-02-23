@@ -1,26 +1,12 @@
-# Use an official PHP runtime as a parent image
-FROM php:7.4-apache
+FROM node:14-alpine
 
-# Set the working directory to /var/www/html
-WORKDIR /var/www/html
+# Create app directory
+WORKDIR /usr/src/app
 
-# Copy the application files into the container
-COPY . /var/www/html/
+COPY . .
 
-# Install any necessary dependencies
-RUN apt-get update && apt-get install -y \
-    libpq-dev \
-    libpng-dev \
-    libjpeg-dev \
-    libxml2-dev \
-    zip \
-    unzip
+RUN npm install
 
-# Install any necessary PHP extensions
-RUN docker-php-ext-install pdo pdo_mysql gd xml zip
+EXPOSE 8080
 
-# Expose port 80 to allow outside access
-EXPOSE 80
-
-# Start the Apache web server when the container starts
-CMD ["apache2-foreground"] 
+CMD [ "node", "server.js" ]
