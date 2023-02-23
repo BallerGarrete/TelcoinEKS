@@ -5,82 +5,57 @@ on:
     branches:
       - main
 
-env:
-  AWS_REGION: us-west-1
-  EKS_CLUSTER_NAME: cluster-telcoin
-  DOCKER_IMAGE_TAG: latest
-
 jobs:
-  deploy:
+  build:
     runs-on: ubuntu-latest
-
     steps:
-      # Checkout the source code from GitHub
-      - name: Checkout
+      - name: Checkout code
         uses: actions/checkout@v2
 
-      #Install and configure the AWS CLI
+      - name: Install dependencies
+        run: |
+          sudo apt-get update && sudo apt-get install -y php
+          composer install --prefer-dist --no-interaction
+
+      - name: Build Docker image
+        uses: docker/build-push-action@v2
+        with:
+          context: .
+          push: false
+          tags: my-laravel-app:latest
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v1
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: us-west-1
+          aws-region: <region>
 
-      - name: Login to Amazon ECR
+      - name: Login to ECR
         id: login-ecr
         run: |
           AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
-          REGISTRY_URL=${AWS_ACCOUNT_ID}.dkr.ecr.<us-west-1>.amazonaws.com
-          AWS_ECR_PASSWORD=$(aws ecr get-login-password --region <us-west-1>)
+          REGISTRY_URL=${AWS_ACCOUNT_ID}.dkr.ecr.<${AWS_REGION}>.amazonaws.com
+          AWS_ECR_PASSWORD=$(aws ecr get-login-password --region <${AWS_REGION}>)
           echo $AWS_ECR_PASSWORD | docker login --username AWS --password-stdin $REGISTRY_URL
-          
-          # Build a docker container and push it to ECR 
-          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
-          echo "Pushing image to ECR..."
-          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
-          echo "::set-output name=image::$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
 
-      - name: Build, tag, and push the image to Amazon ECR
-        id: build-image
+      - name: Install kubectl
+        uses: dawidd6/action-install-kubectl@v1
+        with:
+          version: 1.22.0
+
+      - name: Set up kubectl
         env:
-          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          ECR_REPOSITORY: ${{ secrets.REPO_NAME }}
-          IMAGE_TAG: 1.0
+          KUBECONFIG: ${{ secrets.KUBECONFIG }}
         run: |
-          # Build a docker container and push it to ECR 
-          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
-          echo "Pushing image to ECR..."
-          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
-          echo "::set-output name=image::$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
-        
-      
-      # Install and configure the AWS CLI
-#       - name: Configure AWS CLI
-#         uses: aws-actions/configure-aws-cli@v1
-#         with:
-#           region: ${{ env.AWS_REGION }}
-#           role-to-assume: arn:aws:iam::188527884040:role/GitHubOIDC
+          mkdir -p ~/.kube
+          echo "$KUBECONFIG" | base64 --decode > ~/.kube/config
 
-      # Build the Docker image
-      - name: Build Docker image
-        run: docker build -t my-docker-image:${{ env.DOCKER_IMAGE_TAG }} .
-
-      # Tag the Docker image
-      - name: Tag Docker image
-        run: docker tag my-docker-image:${{ env.DOCKER_IMAGE_TAG }} ${{ steps.eks.outputs.registry }}/${{ env.EKS_CLUSTER_NAME }}/my-docker-image:${{ env.DOCKER_IMAGE_TAG }}
-
-      # Push the Docker image to the ECR repository
-      - name: Push Docker image
+      - name: Deploy to EKS
         run: |
-          $(aws ecr get-login --no-include-email --region ${{ env.AWS_REGION }})
-          docker push ${{ steps.eks.outputs.registry }}/${{ env.EKS_CLUSTER_NAME }}/my-docker-image:${{ env.DOCKER_IMAGE_TAG }}
-
-      # Apply the Kubernetes manifest files to the EKS cluster
-      - name: Apply Kubernetes manifests
-        run: |
-          kubectl apply -f kubernetes/namespace.yaml
           kubectl apply -f kubernetes/deployment.yaml
           kubectl apply -f kubernetes/service.yaml
-        env:
-          KUBECONFIG: ${{ env.KUBECONFIG }}
