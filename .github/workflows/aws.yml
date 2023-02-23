@@ -27,12 +27,24 @@ jobs:
           role-to-assume: arn:aws:iam::188527884040:role/GitHubOIDC
 
       # Authenticate with the EKS cluster
-      - name: Authenticate with EKS
-        id: eks
-        uses: aws-actions/amazon-eks-auth@v1
-        with:
-          region: ${{ env.AWS_REGION }}
-          cluster-name: ${{ env.EKS_CLUSTER_NAME }}
+#       - name: Authenticate with EKS
+#         id: eks
+#         uses: aws-actions/amazon-eks-auth@v1
+#         with:
+#           region: ${{ env.AWS_REGION }}
+#           cluster-name: ${{ env.EKS_CLUSTER_NAME }}
+          
+#       - name: Configure AWS credentials and EKS cluster
+#         run: |
+#           aws configure set aws_access_key_id ${{ secrets.AWS_ACCESS_KEY_ID }}
+#           aws configure set aws_secret_access_key ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+#           aws eks update-kubeconfig --name <your-eks-cluster-name> --region <your-aws-region>
+          
+      - name: Configure AWS credentials and EKS cluster
+        run: |
+          aws configure set aws_access_key_id ${{ AKIASXZJDG4EGMIGDV6Z }}
+          aws configure set aws_secret_access_key ${{ 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 }}
+          aws eks update-kubeconfig --name <cluster-telcoin> --region <env.AWS_REGION>
 
       # Build the Docker image
       - name: Build Docker image
