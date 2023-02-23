@@ -2,51 +2,57 @@ name: Deploy to EKS
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
 
 env:
   AWS_REGION: us-west-1
-  ECR_REPOSITORY: public.ecr.aws/d7d3m1t5/aws-eks
-  K8S_NAMESPACE: my-k8s-namespace
-  K8S_DEPLOYMENT: my-k8s-deployment
-  K8S_CONTAINER: my-k8s-container
+  EKS_CLUSTER_NAME: cluster-telcoin
+  DOCKER_IMAGE_TAG: latest
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
+      # Checkout the source code from GitHub
+      - name: Checkout
         uses: actions/checkout@v2
 
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v1
+      # Install and configure the AWS CLI
+      - name: Configure AWS CLI
+        uses: aws-actions/configure-aws-cli@v1
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ env.AWS_REGION }}
+          region: ${{ env.AWS_REGION }}
+          role-to-assume: arn:aws:iam::188527884040:role/GitHubOIDC
 
-      - name: Login to Amazon ECR
-        id: login-ecr
-        uses: aws-actions/amazon-ecr-login@v1
-
-      - name: Build and push Docker image
-        id: build-image
-        uses: docker/build-push-action@v2
+      # Authenticate with the EKS cluster
+      - name: Authenticate with EKS
+        id: eks
+        uses: aws-actions/amazon-eks-auth@v1
         with:
-          context: .
-          push: true
-          tags: ${{ env.ECR_REPOSITORY }}:${{ github.sha }}
+          region: ${{ env.AWS_REGION }}
+          cluster-name: ${{ env.EKS_CLUSTER_NAME }}
 
-      - name: Deploy to EKS
-        uses: appleboy/ssh-action@master
-        with:
-          host: ${{ secrets.EKS_HOST }}
-          username: ${{ secrets.EKS_USERNAME }}
-          key: ${{ secrets.EKS_KEY }}
-          port: ${{ secrets.EKS_PORT }}
-          script: |
-            kubectl config set-cluster my-cluster --server=https://${{ secrets.EKS_HOST }}
-            kubectl config set-context my-context --cluster=my-cluster --namespace=${{ env.K8S_NAMESPACE }} --user=aws
-            kubectl config use-context my-context
-            kubectl set image deployment/${{ env.K8S_DEPLOYMENT }} ${env.K8S_CONTAINER}=${{ env.ECR_REPOSITORY }}:${{ github.sha }}
+      # Build the Docker image
+      - name: Build Docker image
+        run: docker build -t my-docker-image:${{ env.DOCKER_IMAGE_TAG }} .
+
+      # Tag the Docker image
+      - name: Tag Docker image
+        run: docker tag my-docker-image:${{ env.DOCKER_IMAGE_TAG }} ${{ steps.eks.outputs.registry }}/${{ env.EKS_CLUSTER_NAME }}/my-docker-image:${{ env.DOCKER_IMAGE_TAG }}
+
+      # Push the Docker image to the ECR repository
+      - name: Push Docker image
+        run: |
+          $(aws ecr get-login --no-include-email --region ${{ env.AWS_REGION }})
+          docker push ${{ steps.eks.outputs.registry }}/${{ env.EKS_CLUSTER_NAME }}/my-docker-image:${{ env.DOCKER_IMAGE_TAG }}
+
+      # Apply the Kubernetes manifest files to the EKS cluster
+      - name: Apply Kubernetes manifests
+        run: |
+          kubectl apply -f kubernetes/namespace.yaml
+          kubectl apply -f kubernetes/deployment.yaml
+          kubectl apply -f kubernetes/service.yaml
+        env:
+          KUBECONFIG: ${{ env.KUBECONFIG }}
