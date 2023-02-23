@@ -42,8 +42,8 @@ jobs:
           
       - name: Configure AWS credentials and EKS cluster
         run: |
-          aws configure set aws_access_key_id ${{ AKIASXZJDG4EGMIGDV6Z }}
-          aws configure set aws_secret_access_key ${{ 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 }}
+          aws configure set aws_access_key_id ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws configure set aws_secret_access_key ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws eks update-kubeconfig --name <cluster-telcoin> --region <env.AWS_REGION>
 
       # Build the Docker image
