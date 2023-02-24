@@ -26,8 +26,6 @@ jobs:
         role-session-name: GitHubActions
         aws-region: ${{ secrets.AWS_REGION }}
         oidc-issuer-url: ${{ secrets.AWS_OIDC_ISSUER_URL }}
-        oidc-client-id: ${{ secrets.AWS_OIDC_CLIENT_ID }}
-        oidc-client-secret: ${{ secrets.AWS_OIDC_CLIENT_SECRET }}
 
     - name: Login to Amazon ECR
       id: login-ecr
