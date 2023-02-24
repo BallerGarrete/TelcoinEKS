@@ -1,0 +1,22 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: telcoin-app
+  labels:
+    app: telcoin-app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: telcoin-app
+  template:
+    metadata:
+      labels:
+        app: telcoin-app
+    spec:
+      containers:
+        - name: telcoin-app
+          image: 274127640471.dkr.ecr.us-east-2.amazonaws.com/telcoin-app:1.1
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8080
