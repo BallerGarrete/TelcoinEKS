@@ -22,10 +22,8 @@ jobs:
       uses: aws-actions/configure-aws-credentials@v1
       with:
         role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
-        role-duration-seconds: 3600
-        role-session-name: GitHubActions
-        aws-region: ${{ secrets.AWS_REGION }}
-        oidc-issuer-url: ${{ secrets.AWS_OIDC_ISSUER_URL }}
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
 
     - name: Login to Amazon ECR
       id: login-ecr
